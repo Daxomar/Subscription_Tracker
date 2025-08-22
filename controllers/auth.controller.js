@@ -77,8 +77,7 @@ export const signIn = async (req, res, next)=>{
             message: 'User signed in successfully',
             data:{
                 token,
-                user, // expecting the user with that particular email.
-                
+                user, // expecting the user with that particular email
             }
         }
      )
