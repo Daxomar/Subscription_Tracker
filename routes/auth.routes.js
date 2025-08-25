@@ -1,6 +1,6 @@
 import { Router} from 'express';
 import { signUp, signIn, signOut,  } from '../controllers/auth.controller.js';
-
+import arcjetMiddleware from '../middlewares/arcjet.middleware.js';
 
 const authRouter = Router();
 
@@ -8,7 +8,7 @@ const authRouter = Router();
 authRouter.post('/sign-up', signUp)
 
 //path: /api/v1/auth/sign-in (POST)
-authRouter.post('/sign-in', signIn)
+authRouter.post('/sign-in',  signIn)
 
 
 //path: /api/v1/auth/sign-out (POST)

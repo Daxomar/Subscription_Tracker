@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';;
 
-const subcriptionSchema = new mongoose.Schema({
+const subscriptionSchema = new mongoose.Schema({
   name:{
     type: String,
     required: [true, 'Subscription Name is required'],
@@ -50,7 +50,6 @@ const subcriptionSchema = new mongoose.Schema({
     },
     renewalDate:{
         type:Date,
-        required: true,
         validate : (value) => value > this.startDate, //might have to change this later to an actual function if arrow funcs dont work
         message: 'Renewal date must be after the start date',
     },
@@ -66,26 +65,32 @@ const subcriptionSchema = new mongoose.Schema({
 
 
 //Auto-calculate the renewal date if missing
-subcriptionSchema.pre(save, (next)=>{
-  if(!this.renewalDate){
-    const renewalPeriods ={
-        daily: 1,
-        weekly: 7,
-        monthly: 30,
-        yearly: 365,
+
+
+subscriptionSchema.pre("save", function (next) {
+  if (!this.renewalDate) {
+    const renewalPeriods = {
+      daily: 1,
+      weekly: 7,
+      monthly: 30,
+      yearly: 365,
     };
 
-this.renewalDate = new Date(this.startDate)
-this.renewalDate.setDate(this.renewalDate.getDate() + renewalPeriods[this.frequency])
-}
-//Auto-update the status if the renewal date has passed
-if(this.renewalDate < new Date()){
-    this.status = 'expired';
-}
-next(); 
-})
+    this.renewalDate = new Date(this.startDate);
+    this.renewalDate.setDate(
+      this.renewalDate.getDate() + renewalPeriods[this.frequency]
+    );
+  }
+
+  // Auto-update the status if the renewal date has passed
+  if (this.renewalDate < new Date()) {
+    this.status = "expired";
+  }
+
+  next();
+});
 
 
-const Subscription = mongoose.model('Subscription', subcriptionSchema);
+const Subscription = mongoose.model('Subscription', subscriptionSchema);
 
 export default Subscription;
