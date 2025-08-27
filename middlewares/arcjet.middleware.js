@@ -3,7 +3,7 @@ import aj from '../config/arcjet.js';
 const arcjetMiddleware  = async(req , res, next) => {
     try{
             const decision =  await aj.protect(req,{requested: 1}); // requested :1 means i take away 1 token from the bucket upon every request
-                console.log('Arcjet decision:', decision);
+                // console.log('Arcjet decision:', decision);
 
                 if(decision.isDenied()){
                     if(decision.reason.isRateLimit()) return res.status(429).json({error: 'Too many requests - Rate limit exceeded'});
