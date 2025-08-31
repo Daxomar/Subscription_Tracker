@@ -28,6 +28,7 @@ const {workflowRunId } = await workflowClient.trigger({
                         })
 
     }catch(error){
+        console.log(error)
         next(error)
     }
 }
@@ -52,6 +53,7 @@ export const getUserSubscriptions = async (req, res, next)=>{
             })
 
     }catch(error){
+        console.log(error)
         next(error)
     }
 }
