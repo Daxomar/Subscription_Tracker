@@ -74,7 +74,7 @@ export const sendOTPEmail = async ({ to, userName, otpCode, expiryMinutes }) => 
   const mailOptions = {
     from: accountEmail,
     to: to,
-    subject: 'Your Reset Verification Code - Dave SubDub',
+    subject: 'Your Verification Code - Dave SubDub',
     html: generateOTPEmailTemplate({ 
       userName,
       otpCode,

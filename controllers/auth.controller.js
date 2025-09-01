@@ -42,7 +42,8 @@ export const signUp = async (req, res, next) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const newUsers = await User.create([{name, email, password: hashedPassword }], {session}); // I might change this later for just singleNewUser creation
-        const token = jwt.sign({userId: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
+        const token = jwt.sign({id: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
+        // const token = jwt.sign({userId: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
         await session.commitTransaction();
         session.endSession();
 
@@ -116,14 +117,15 @@ export const signIn = async (req, res, next)=>{
         throw error;
      };
 
-     const token = jwt.sign({userId: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+     const token = jwt.sign({id: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+    //  const token = jwt.sign({userId: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
 
       
      // pushing the token in a cookie
           res.cookie('token', token,{
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', //only send cookie over https
-            sameSite: process.env.NODE_ENV ==='production'? 'none': 'strict',    // more look into this later!!!!!!
+            sameSite: process.env.NODE_ENV ==='production'? 'none': 'lax',    // more look into this later!!!!!!
             maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
           })
 
@@ -170,16 +172,14 @@ export const signOut = async (req, res , next)=>{
 
 
 
-
-
-
-
 // Send Verification OTP to the User's Email (Optional)   // will uncomment it when i add the need columns to the user model
 export const sendVerifyOtp = async (req, res, next) => {
     
       try{
         //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
+        
         const {userId} = req.body;
+        console.log("otpdebug", userId)
         const user = await User.findById(userId);
 
         if(user.isAccountVerified){

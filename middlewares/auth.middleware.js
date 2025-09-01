@@ -7,7 +7,7 @@ import { JWT_SECRET } from "../config/env.js";
 export const userAuthCookie = async (req, res, next) => {
       
     const {token} = req.cookies;
-
+    console.log("this is the token taken from the cookie by userAuthCookie",token);
     if(!token) return res.status(401).json({message: 'Unauthorized, login again'});
 
      
@@ -16,6 +16,7 @@ export const userAuthCookie = async (req, res, next) => {
     console.log(tokenDecoded)// for testing purposes
 
     if(tokenDecoded.id){
+      console.log("token Decoded id", tokenDecoded.id )
       req.body.userId = tokenDecoded.id;
     }else{
         return res.status(401).json({message: 'Unauthorized, login again'});
@@ -71,6 +72,3 @@ export const authorize = async (req, res, next) =>{
         res.status(401).json({message: 'Unauthorized', error: error.message})
     }
 }
-
-
-export default authorize
