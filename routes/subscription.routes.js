@@ -1,5 +1,5 @@
 import { Router } from "express";
-import authorize from "../middlewares/auth.middleware.js";
+import {authorize, userAuthCookie} from "../middlewares/auth.middleware.js";
 import { createSubscription, getUserSubscriptions } from "../controllers/subscription.controller.js";
 
 const subscriptionRouter = Router();
@@ -37,3 +37,20 @@ subscriptionRouter.get('/upcoming-renewals', (req, res)=> res.send({title: 'GET 
 
 
 export default subscriptionRouter;
+
+
+
+
+
+
+
+
+// {
+//    "name": "CRUN",
+//    "price": 139,
+//    "currency": "USD",
+//    "frequency": "monthly",
+//    "category": "entertainment",
+//    "startDate": "2025-08-4",
+//    "paymentMethod": "Credit Card"
+// }

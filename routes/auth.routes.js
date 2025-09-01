@@ -1,6 +1,7 @@
 import { Router} from 'express';
-import { signUp, signIn, signOut,  } from '../controllers/auth.controller.js';
+import { signUp, signIn, signOut, sendVerifyOtp, verifyEmail, isAuthenicated, sendResetOtp, resetPassword, } from '../controllers/auth.controller.js';
 import arcjetMiddleware from '../middlewares/arcjet.middleware.js';
+import {userAuthCookie} from '../middlewares/auth.middleware.js';
 
 const authRouter = Router();
 
@@ -13,5 +14,27 @@ authRouter.post('/sign-in',  signIn)
 
 //path: /api/v1/auth/sign-out (POST)
 authRouter.post('/sign-out', signOut)
+
+
+authRouter.post('/send-verify-otp', userAuthCookie, sendVerifyOtp)
+
+
+authRouter.post('/verify-account', userAuthCookie, verifyEmail)
+
+
+authRouter.post('/is-auth', userAuthCookie, isAuthenicated)
+
+
+authRouter.post('/send-reset-otp', sendResetOtp)
+
+
+authRouter.post('/reset-password', resetPassword)
+
+
+
+
+
+
+
 
 export default authRouter;
