@@ -4,19 +4,21 @@ import User from '../models/user.model.js';
 import jwt from 'jsonwebtoken'
 import { JWT_SECRET } from "../config/env.js";
 
+
+
+
+
+
 export const userAuthCookie = async (req, res, next) => {
       
     const {token} = req.cookies;
-    console.log("this is the token taken from the cookie by userAuthCookie",token);
     if(!token) return res.status(401).json({message: 'Unauthorized, login again'});
 
      
     try{
     const tokenDecoded = jwt.verify(token, JWT_SECRET);
-    console.log(tokenDecoded)// for testing purposes
 
     if(tokenDecoded.id){
-      console.log("token Decoded id", tokenDecoded.id )
       req.body.userId = tokenDecoded.id;
     }else{
         return res.status(401).json({message: 'Unauthorized, login again'});

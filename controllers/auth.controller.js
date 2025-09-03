@@ -322,7 +322,7 @@ export const sendResetOtp = async(req, res)=>{
 
 
 // Reset User Password
-export const resetPassword = async (req, res)=>{
+export const resetPassword = async (req, res, next)=>{
     const {email, otp, newPassword} = req.body;
 
     if(!email || !otp || !newPassword){
@@ -331,6 +331,7 @@ export const resetPassword = async (req, res)=>{
             message:"Email, OTP and new Password are required"
         })
     }; 
+
 
 
     try{
@@ -342,7 +343,11 @@ export const resetPassword = async (req, res)=>{
         })
      }; 
 
-      if(user.resetOtp ==="" || user.resetOtp !== otp){
+
+     console.log("Reset Password should be working if this consoles", user.name + newPassword + otp)
+
+
+      if(user.resetOtp === "" || user.resetOtp !== otp){
         return res.json({
             success: false, 
             message:"Invalid OTP"
@@ -358,7 +363,7 @@ export const resetPassword = async (req, res)=>{
 
         //hash the new password and push to database
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(newPasswor, salt);
         user.password = hashedPassword;
         user.resetOtp = '';
         user.resetOtpExpireAt = 0;
@@ -371,7 +376,8 @@ export const resetPassword = async (req, res)=>{
         });
 
     }catch(error){
-        
+       res.json({success: false, message: 'Could not send reset password', error: error.message})
+        next(error)   
     }
 }
 

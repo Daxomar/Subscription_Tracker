@@ -16,7 +16,7 @@ export const getUser = async (req, res, next ) =>{
 
   try{
     const {userId} = req.body;
-    console.log(userId); 
+    console.log("this is what i am currently debugging", userId); 
         const user = await User.findById(userId).select('-passsword');
 
     // const user = await User.findById(req.params.id).select('-password'); // brings eveything out aside from the password of a user

@@ -1,7 +1,6 @@
 
 import express from 'express';
 import cookieParser from 'cookie-parser';
-
 import { PORT } from './config/env.js';
 
 import userRouter from './routes/user.routes.js'
