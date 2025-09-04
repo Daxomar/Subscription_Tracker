@@ -44,7 +44,7 @@ console.log('Server is running on port 5000');
 app.listen(PORT, async () => {
     console.log(`Subscription tracker is running on http://localhost:${PORT}`);
    await connectToDatabase()
-});
+}); 
 
 
 
