@@ -53,6 +53,12 @@ const subscriptionSchema = new mongoose.Schema({
         validate : (value) => value > this.startDate, //might have to change this later to an actual function if arrow funcs dont work
         message: 'Renewal date must be after the start date',
     },
+
+    //I just added workflowId to i can make reference to it and change it
+    workflowRunId: {
+      type: String,
+      default: null,
+  },
     user:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
