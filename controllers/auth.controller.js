@@ -42,7 +42,9 @@ export const signUp = async (req, res, next) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const newUsers = await User.create([{name, email, password: hashedPassword }], {session}); // I might change this later for just singleNewUser creation
-        const token = jwt.sign({id: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
+        // const token = jwt.sign({id: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
+        const token = jwt.sign({id: newUsers[0]._id, role:newUsers[0].role, email:newUsers[0].email}, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+
         // const token = jwt.sign({userId: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
         await session.commitTransaction();
         session.endSession();
@@ -117,8 +119,8 @@ export const signIn = async (req, res, next)=>{
         throw error;
      };
 
-     const token = jwt.sign({id: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
-    //  const token = jwt.sign({userId: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+    //  const token = jwt.sign({id: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+     const token = jwt.sign({id: user._id, role:user.role, email:user.email}, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
 
       
      // pushing the token in a cookie

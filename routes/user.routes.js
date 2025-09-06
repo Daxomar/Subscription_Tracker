@@ -1,7 +1,7 @@
 import  { Router} from 'express';
 
-import  { authorize,  userAuthCookie } from '../middlewares/auth.middleware.js'
-import {getUsers, getUser} from '../controllers/user.controller.js'
+import  { authorize,  authorizeRoles,  protect,  userAuthCookie,   } from '../middlewares/auth.middleware.js'
+import {getUsers, getUser,} from '../controllers/user.controller.js'
 const userRouter = Router();
 
 //GET /users - Get all users
@@ -12,20 +12,26 @@ const userRouter = Router();
 
 
 
-userRouter.get('/', getUsers);    // I have to later add the admin authorization middleWare over here too later for strict acces
+//ADMIN ENDPOINT
+userRouter.get('/', protect, authorizeRoles("admin"),  getUsers);    // I have to later add the admin authorization middleWare over here too later for strict acces
 
+
+//USER ENDPOINT
 userRouter.get('/me', userAuthCookie, getUser);  
 
 
-userRouter.get('/:id', authorize, getUser);  //I added the right authorization middleware over here
+// userRouter.get('/:id', authorize, getUser);  //I added the right authorization middleware over here
 
 
+//ADMIN ENDPOINT
 userRouter.post('/', (req, res)=> res.send({title: 'Create new user endpoint is working!'}));
 
 
+//ADMIN ENDPOINT
 userRouter.put('/:id', (req, res)=> res.send({title: 'Update user by ID endpoint is working!'}));
 
 
+//ADMIN ENDPOINT
 userRouter.delete('/:id', (req, res)=> res.send({title: 'Delete user by ID endpoint is working!'}));
 
 

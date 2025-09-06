@@ -8,7 +8,68 @@ import { JWT_SECRET } from "../config/env.js";
 
 
 
+// CHECKS IF USER HAS THE RIGHT ACCES CONTROL PARAMETERS
+export const authorizeRoles = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        code: "UNAUTHORIZED", 
+        message: "You must be logged in" 
+      });
+    }
 
+    const userRole = req.user.role;
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ 
+        code: "INSUFFICIENT_PERMISSIONS", 
+        message: `Access denied: requires role(s) ${allowedRoles.join(", ")}`
+      });
+    }
+
+    next();
+  };
+};
+
+
+
+
+
+// THIRD ONE I CREATED V3  
+export const protect = async (req, res, next) => {
+      
+    const {token} = req.cookies;
+    if(!token) return res.status(401).json({message: 'Unauthorized, login again'});
+
+     
+    try{
+    const tokenDecoded = jwt.verify(token, JWT_SECRET);
+
+    if(tokenDecoded){
+      req.user = {
+        id: tokenDecoded.id,
+        email:tokenDecoded.email,
+        role:tokenDecoded.role 
+       };
+    }else{
+        return res.status(401).json({message: 'Unauthorized, login again'});
+      }
+
+    next(); 
+
+}catch(error){
+
+    return res.status(403).json({message: 'Forbidden: invalid or expired token', error: error.message})
+
+}
+
+}
+
+
+
+
+
+
+// SECOND ONE I CREATED V2
 export const userAuthCookie = async (req, res, next) => {
       
     const {token} = req.cookies;
@@ -48,7 +109,10 @@ export const userAuthCookie = async (req, res, next) => {
 
 
 
+
 /// I used this when i manually added the bearer token in postman to test protected routes
+//LOL this was the first one i created my baby 
+//V1
 export const authorize = async (req, res, next) =>{
     try{
 
