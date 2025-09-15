@@ -1,7 +1,8 @@
 import  { Router} from 'express';
 
 import  { authorize,  authorizeRoles,  protect,  userAuthCookie,   } from '../middlewares/auth.middleware.js'
-import {getUsers, getUser,} from '../controllers/user.controller.js'
+import {getUsers, getUser, creatAccountByAdmin} from '../controllers/user.controller.js'
+
 const userRouter = Router();
 
 //GET /users - Get all users
@@ -17,18 +18,19 @@ userRouter.get('/', protect, authorizeRoles("admin"),  getUsers);    // I have t
 
 
 //USER ENDPOINT
-userRouter.get('/me', userAuthCookie, getUser);  
+userRouter.get('/me', protect, getUser);  
 
 
 // userRouter.get('/:id', authorize, getUser);  //I added the right authorization middleware over here
 
 
 //ADMIN ENDPOINT
-userRouter.post('/', (req, res)=> res.send({title: 'Create new user endpoint is working!'}));
+userRouter.post('/', protect, authorizeRoles("admin"), creatAccountByAdmin);
 
 
 //ADMIN ENDPOINT
-userRouter.put('/:id', (req, res)=> res.send({title: 'Update user by ID endpoint is working!'}));
+// userRouter.put('/:id', (req, res)=> res.send({title: 'Update user by ID endpoint is working!'}));
+// userRouter.put('/:id',protect,  updateUserByAdmin);   // Will define this today
 
 
 //ADMIN ENDPOINT

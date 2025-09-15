@@ -4,13 +4,18 @@ import { SERVER_URL } from "../config/env.js";
 import User from '../models/user.model.js'
 
 
-export const createSubscription = async (req, res, next)=>{
-    try{
 
+//CREATING ONE SUBSCRIPTION
+export const createSubscription = async (req, res, next)=>{
+   
+         const {id} = req.user
+
+    try{
+ 
 
     const subscription = await Subscription.create({
         ...req.body,
-        user: req.body.userId 
+        user: id
         // req.user._id,
 
         });
@@ -52,8 +57,15 @@ const {workflowRunId } = await workflowClient.trigger({
 export const getUserSubscriptions = async (req, res, next)=>{
     try{
 
-      const {userId} = req.body;
-    const subscriptions = await Subscription.find({ user: userId });
+    //   const {userId} = req.body;
+        const {id} = req.user
+    const subscriptions = await Subscription.find({ user: id });
+
+    if(!subscriptions){
+         const error = new Error('User not found')
+        error.statusCode = 404;
+        throw error
+    }
         res.status(200).json({
             success:true,
              data: subscriptions
@@ -81,15 +93,19 @@ export const getUserSubscriptions = async (req, res, next)=>{
 // };
 
 
+
+
+//DELETING ONE SUBSCRIPTION
 export const deleteSubscription = async (req, res, next) =>{
    
     try{
         const {id:subscriptionId } = req.params; // Get ID from URL
-        const {userId} = req.body; 
+        // const {userId} = req.body;  // THIS WAS WHEN I USED AUTHCOOKIES
+        const {id} = req.user;  // id of the user passed from PROTECT
 
         const subscription = await Subscription.findOne({ 
             _id: subscriptionId, 
-            user: userId 
+            user: id
         });
  
 
@@ -125,11 +141,13 @@ export const deleteSubscription = async (req, res, next) =>{
 
 
 
-
+//UPDATING ONE SUBSCRIPTION
 export const updateSubscription = async (req, res, next) => { 
     try { 
         const { id: subscriptionId } = req.params; 
-        const { userId } = req.body; 
+        // const { userId } = req.body; 
+        const {id}  = req.user;
+
         const updateData = req.body; 
          
         // Remove userId from updateData to avoid updating it 
@@ -137,7 +155,8 @@ export const updateSubscription = async (req, res, next) => {
  
         const existingSubscription = await Subscription.findOne({  
             _id: subscriptionId,  
-            user: userId  
+            // user: userId  
+               user: id
         }); 
  
         if (!existingSubscription) { 
@@ -273,3 +292,33 @@ export const updateSubscription = async (req, res, next) => {
     } 
 };
 
+
+
+
+
+
+//GETTING ALL SUBSCRIPTION
+export const getAllSubscriptions = async (req, res, next) =>{
+          
+    try{
+        const {id, email , role} = req.user;
+        const subscriptions = await Subscription.find(); 
+
+        if(!subscriptions){
+            const error = new Error('Subscriptions Not Found')
+            error.statusCode = 404;
+            throw error
+        }
+        
+        res.status(200).json({
+            success: true, 
+            data: subscriptions, 
+            message: `Here are all the subscriptions made in my app, Request made by ${role} with id:${id}`
+        })
+
+    }catch(error){
+        console.log(error)
+    }
+
+ 
+}

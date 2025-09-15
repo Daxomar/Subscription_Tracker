@@ -8,6 +8,7 @@ import { sendWelcomeEmail, sendOTPEmail } from "../utils/send-email.js";
 // import { NODE_ENV, } from "../config/env.js";   //might have to uncomment this later as well as dotenv not sure
 
 
+//USER REGISTERING AN ACCOUNT THEMSELVES
 export const signUp = async (req, res, next) => {
      const session = await mongoose.startSession();
      session.startTransaction(); // I actually learnt this in class for relational dbs, makes the database atomic
@@ -45,11 +46,20 @@ export const signUp = async (req, res, next) => {
         // const token = jwt.sign({id: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
         const token = jwt.sign({id: newUsers[0]._id, role:newUsers[0].role, email:newUsers[0].email}, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
 
+
         // const token = jwt.sign({userId: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
         await session.commitTransaction();
         session.endSession();
 
-
+            //Safe user instance that does not return secure info
+            const safeUser = {
+                    _id: newUsers[0]._id,
+                    name: newUsers[0].name,
+                    email: newUsers[0].email,
+                    role: newUsers[0].role,
+                    isAccountVerified: newUsers[0].isAccountVerified,
+                    createdAt: newUsers[0].createdAt,
+                    };
 
               //res.cookies // don't forget to set cookies here later
           res.cookie('token', token,{
@@ -60,21 +70,20 @@ export const signUp = async (req, res, next) => {
           })
 
      
-       res.status(201).json({
-        success: true,
-        message: 'User created successfully',
-        data:{
-            token,
-            user:newUsers[0],
-        }
-       });
-
+      
 
        // Sends the welcome email 
         await sendWelcomeEmail({ 
             to: email, 
             userName: name 
             })
+
+            //Send The response
+            res.status(201).json({
+                    success: true,
+                    message: 'User created successfully',
+                    user:safeUser,
+                });
 
 
 
@@ -87,7 +96,7 @@ export const signUp = async (req, res, next) => {
 }
 
 
-
+//USER TRYING TO LOG INTO AN THIER ACCOUNT
 export const signIn = async (req, res, next)=>{
 
     // So that we don't have to send empty details to the server
@@ -104,6 +113,7 @@ export const signIn = async (req, res, next)=>{
 
    try{
 
+    //Get the user from db
    const user = await User.findOne({email});
 
    if(!user){
@@ -122,25 +132,45 @@ export const signIn = async (req, res, next)=>{
     //  const token = jwt.sign({id: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
      const token = jwt.sign({id: user._id, role:user.role, email:user.email}, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
 
+
+     //Clean put only userdata that are safe returning over here
+     const safeUser = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            isAccountVerified: user.isAccountVerified,
+            createdAt: user.createdAt,
+            };
       
-     // pushing the token in a cookie
-          res.cookie('token', token,{
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', //only send cookie over https
-            sameSite: process.env.NODE_ENV ==='production'? 'none': 'lax',    // more look into this later!!!!!!
+    //  pushing the token in a cookie
+        //   res.cookie('token', token,{
+        //     httpOnly:true ,
+        //     secure: process.env.NODE_ENV === 'production', //only send cookie over https
+        //     sameSite: process.env.NODE_ENV ==='production'? 'none': 'lax',    // more look into this later!!!!!!
+        //     maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
+        //   })
+
+          
+     res.cookie('token', token,{
+            httpOnly:true,
+            secure:true, //only send cookie over https
+            sameSite:'none',    // more look into this later!!!!!!
             maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
+            
+
           })
+
+
 
 
           // I will remove this later, currently just for testing purposes
      res.status(200).json(
         {
             success: true, 
-            message: 'User signed in successfully',
-            data:{
-                token,
-                user, // expecting the user with that particular email
-            }
+            message: 'User signed in successfully', 
+            user:safeUser // expecting the user with that particular email
+            
         }
      )
 
@@ -152,8 +182,7 @@ export const signIn = async (req, res, next)=>{
 }
 
 
-
-
+//USER LOGGING OUT OF THIER ACCOUNT
 export const signOut = async (req, res , next)=>{
 
     // try{
@@ -174,7 +203,7 @@ export const signOut = async (req, res , next)=>{
 
 
 
-// Send Verification OTP to the User's Email (Optional)   // will uncomment it when i add the need columns to the user model
+// SEND VERIFICATION OTP TO THE USERS EMAIL   // will uncomment it when i add the need columns to the user model
 export const sendVerifyOtp = async (req, res, next) => {
     
       try{
@@ -215,10 +244,7 @@ export const sendVerifyOtp = async (req, res, next) => {
 
 
 
-
-
-
-// Verify the OTP entered by the user Optional  // will uncomment it when i add the need columns to the user model
+// VERIFY EMAIL ACCOUNT VIA OTP BEING SENT WHEN USER INPUTS IT  // will uncomment it when i add the need columns to the user model
 export const verifyEmail = async (req, res, next) =>{
 
      //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
@@ -267,7 +293,7 @@ export const verifyEmail = async (req, res, next) =>{
 
 
 
-//Check if user is authenticated
+//CHECK IF USER IS AUTHENTICATED
 export const isAuthenicated = async (req, res)=>{
     try{
         return res.json({success: true});
@@ -282,7 +308,7 @@ export const isAuthenicated = async (req, res)=>{
 
 
 
-//Send Password Reset OPT
+//SEND PASSWORD RESET OTP
 export const sendResetOtp = async(req, res)=>{
     const {email} = req.body;
 
@@ -323,7 +349,7 @@ export const sendResetOtp = async(req, res)=>{
 
 
 
-// Reset User Password
+//RESET USER PASSWORD
 export const resetPassword = async (req, res, next)=>{
     const {email, otp, newPassword} = req.body;
 
@@ -382,6 +408,7 @@ export const resetPassword = async (req, res, next)=>{
         next(error)   
     }
 }
+
 
 
 

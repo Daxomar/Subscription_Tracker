@@ -44,6 +44,7 @@ export const protect = async (req, res, next) => {
     try{
     const tokenDecoded = jwt.verify(token, JWT_SECRET);
 
+    
     if(tokenDecoded){
       req.user = {
         id: tokenDecoded.id,
