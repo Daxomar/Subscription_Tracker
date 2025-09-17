@@ -157,8 +157,6 @@ export const signIn = async (req, res, next)=>{
             secure:true, //only send cookie over https
             sameSite:'none',    // more look into this later!!!!!!
             maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
-            
-
           })
 
 
@@ -185,19 +183,19 @@ export const signIn = async (req, res, next)=>{
 //USER LOGGING OUT OF THIER ACCOUNT
 export const signOut = async (req, res , next)=>{
 
-    // try{
-    //     res.clearCookie('token',{
-    //         httpOnly : true,
-    //         secure: process.env.NODE_ENV === 'production',
-    //         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-    //     });
+    try{
+        res.clearCookie('token',{
+            httpOnly : true,
+            secure: true,
+            sameSite: 'none' 
+        });
 
-    //      return res.json({success: true, message: "Sign out successful"});
+         return res.json({success: true, message: "Sign out successful"});
 
-    // } catch(error){
-    //     console.log(error)
-    //     next(error)
-    // }
+    } catch(error){
+        console.log(error)
+        next(error)
+    }
 
 }
 
@@ -209,9 +207,9 @@ export const sendVerifyOtp = async (req, res, next) => {
       try{
         //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
         
-        const {userId} = req.body;
-        console.log("otpdebug", userId)
-        const user = await User.findById(userId);
+        const {id} = req.user;
+        console.log("otpdebug", id)
+        const user = await User.findById(id);
 
         if(user.isAccountVerified){
             return res.json({success: false, message: 'Account already verified'})
@@ -248,14 +246,15 @@ export const sendVerifyOtp = async (req, res, next) => {
 export const verifyEmail = async (req, res, next) =>{
 
      //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
-    const {userId, otp} = req.body;
+    const {otp} = req.body;
+    const {id} = req.user;
 
-    if(!userId || !otp){
+    if(!id || !otp){
         return res.json({success: false, message: 'Missing details, please provide them'})
     }
     try{
 
-       const user = await User.findById(userId);
+       const user = await User.findById(id);
 
       // If user with the provided id doesn't exist
       if(!user){
@@ -310,8 +309,7 @@ export const isAuthenicated = async (req, res)=>{
 
 //SEND PASSWORD RESET OTP
 export const sendResetOtp = async(req, res)=>{
-    const {email} = req.body;
-
+    const {email} = req.user;
     if(!email){
         return res.json({success: false, message: "Email is required"})
     }
@@ -351,7 +349,8 @@ export const sendResetOtp = async(req, res)=>{
 
 //RESET USER PASSWORD
 export const resetPassword = async (req, res, next)=>{
-    const {email, otp, newPassword} = req.body;
+    const {email} = req.user;
+    const {otp, newPassword} = req.body;
 
     if(!email || !otp || !newPassword){
         return res.json({
@@ -391,7 +390,7 @@ export const resetPassword = async (req, res, next)=>{
 
         //hash the new password and push to database
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPasswor, salt);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
         user.password = hashedPassword;
         user.resetOtp = '';
         user.resetOtpExpireAt = 0;
