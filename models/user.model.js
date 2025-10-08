@@ -1,16 +1,16 @@
 import mongoose from "mongoose";
 const userSchema = new mongoose.Schema({
 
-    name:{
+    name: {
         type: String,
-        required:[true, 'User Name is required'],
+        required: [true, 'User Name is required'],
         trim: true,
         minLength: 2,
         maxLength: 50,
-    }, 
+    },
     email: {
         type: String,
-        required:[true, 'Email is required'],
+        required: [true, 'Email is required'],
         unique: true,
         trim: true,
         lowercase: true,
@@ -22,41 +22,51 @@ const userSchema = new mongoose.Schema({
 
     password: {
         type: String,
-        required:[true, 'Password is required'],
+        required: [true, 'Password is required'],
         minLength: 6,
-        
+
     },
 
-    verifyOtp:{
-        type:String,
-         default:''
+    accessToken: {
+        type: String,
     },
-    verifyOtpExpireAt:{
+
+
+    refreshToken: {
+        type: String,
+    },
+
+
+    verifyOtp: {
+        type: String,
+        default: ''
+    },
+    verifyOtpExpireAt: {
         type: Number,
         default: 0
     },
-    
-    isAccountVerified:{
-        type:Boolean,
+
+    isAccountVerified: {
+        type: Boolean,
         default: false
     },
 
-    resetOtp:{
-        type:String,
-        default:''
+    resetOtp: {
+        type: String,
+        default: ''
     },
 
-    resetOtpExpireAt:{
-        type:Number,
+    resetOtpExpireAt: {
+        type: Number,
         default: 0
-    }, 
-    role:{
+    },
+    role: {
         type: String,
         emum: ["user", "admin", "moderator"],
-        default:"user"
+        default: "user"
     }
 
-}, {timestamps: true});
+}, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
 

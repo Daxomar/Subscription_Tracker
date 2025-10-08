@@ -2,23 +2,24 @@ import mongoose from "mongoose";
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken';
 import User from "../models/user.model.js";
-import { JWT_EXPIRES_IN, JWT_SECRET } from "../config/env.js";
+import { JWT_EXPIRES_IN, JWT_SECRET, JWT_REFRESH_SECRET } from "../config/env.js";
 import { sendWelcomeEmail, sendOTPEmail } from "../utils/send-email.js";
+ import { generateTokens } from '../utils/token_util.js';  ///NEW IMPORT
 
 // import { NODE_ENV, } from "../config/env.js";   //might have to uncomment this later as well as dotenv not sure
 
 
 //USER REGISTERING AN ACCOUNT THEMSELVES
 export const signUp = async (req, res, next) => {
-     const session = await mongoose.startSession();
-     session.startTransaction(); // I actually learnt this in class for relational dbs, makes the database atomic
-     //all or nothing, no halfway authentications, it either works or it doesn't
+    const session = await mongoose.startSession();
+    session.startTransaction(); // I actually learnt this in class for relational dbs, makes the database atomic
+    //all or nothing, no halfway authentications, it either works or it doesn't
 
 
 
     // So that we don't have to send empty details to the server
-     const {name, email, password} = req.body;
-    if(!name|| !email || !password){
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
         return res.json(
             {
                 success: false,
@@ -29,79 +30,79 @@ export const signUp = async (req, res, next) => {
 
 
 
-      try{      
+    try {
         //Check if user already exists
-        const existingUser = await User.findOne({email});
+        const existingUser = await User.findOne({ email });
 
-        if(existingUser){
+        if (existingUser) {
             const error = new Error('User already exists')
             error.statusCode = 409;
             throw error;
         }
-    
+
         //If newuser doesn't already exit continue flow and hash created passwords
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-        const newUsers = await User.create([{name, email, password: hashedPassword }], {session}); // I might change this later for just singleNewUser creation
+        const newUsers = await User.create([{ name, email, password: hashedPassword }], { session }); // I might change this later for just singleNewUser creation
         // const token = jwt.sign({id: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
-        const token = jwt.sign({id: newUsers[0]._id, role:newUsers[0].role, email:newUsers[0].email}, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+        const token = jwt.sign({ id: newUsers[0]._id, role: newUsers[0].role, email: newUsers[0].email, isAccountVerified: newUsers[0].isAccountVerified }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
 
         // const token = jwt.sign({userId: newUsers[0]._id }, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
         await session.commitTransaction();
         session.endSession();
 
-            //Safe user instance that does not return secure info
-            const safeUser = {
-                    _id: newUsers[0]._id,
-                    name: newUsers[0].name,
-                    email: newUsers[0].email,
-                    role: newUsers[0].role,
-                    isAccountVerified: newUsers[0].isAccountVerified,
-                    createdAt: newUsers[0].createdAt,
-                    };
+        //Safe user instance that does not return secure info
+        const safeUser = {
+            _id: newUsers[0]._id,
+            name: newUsers[0].name,
+            email: newUsers[0].email,
+            role: newUsers[0].role,
+            isAccountVerified: newUsers[0].isAccountVerified,
+            createdAt: newUsers[0].createdAt,
+        };
 
-              //res.cookies // don't forget to set cookies here later
-          res.cookie('token', token,{
+        //res.cookies // don't forget to set cookies here later
+        res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production', //only send cookie over https
-            sameSite: process.env.NODE_ENV ==='production'? 'none': 'strict',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
             maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
-          })
-
-     
-      
-
-       // Sends the welcome email 
-        await sendWelcomeEmail({ 
-            to: email, 
-            userName: name 
-            })
-
-            //Send The response
-            res.status(201).json({
-                    success: true,
-                    message: 'User created successfully',
-                    user:safeUser,
-                });
+        })
 
 
 
-      } catch(error){
-            await session.abortTransaction();
-            session.endSession();
-            next(error);
-        }
-    
+
+        // Sends the welcome email 
+        await sendWelcomeEmail({
+            to: email,
+            userName: name
+        })
+
+        //Send The response
+        res.status(201).json({
+            success: true,
+            message: 'User created successfully',
+            user: safeUser,
+        });
+
+
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        next(error);
+    }
+
 }
 
 
 //USER TRYING TO LOG INTO AN THIER ACCOUNT
-export const signIn = async (req, res, next)=>{
+export const signIn = async (req, res, next) => {
 
     // So that we don't have to send empty details to the server
-    const {email, password} = req.body;
-    if(!email || !password){
+    const { email, password } = req.body;
+    if (!email || !password) {
         return res.json(
             {
                 success: false,
@@ -111,39 +112,76 @@ export const signIn = async (req, res, next)=>{
     }
 
 
-   try{
+    try {
 
-    //Get the user from db
-   const user = await User.findOne({email});
+        //Get the user from db
+        const user = await User.findOne({ email });
 
-   if(!user){
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
-   };
+        if (!user) {
+            const error = new Error('Invalid credentials');
+            error.statusCode = 401;
+            throw error;
+        };
 
-   const isPasswordValid = await bcrypt.compare(password, user.password)
-     if(!isPasswordValid){
-        const error = new Error('Invalid password')
-        error.statusCode = 401;
-        throw error;
-     };
+        const isPasswordValid = await bcrypt.compare(password, user.password)
+        if (!isPasswordValid) {
+            const error = new Error('Invalid credentials')
+            error.statusCode = 401;
+            throw error;
+        };
 
-    //  const token = jwt.sign({id: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
-     const token = jwt.sign({id: user._id, role:user.role, email:user.email}, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+        //  const token = jwt.sign({id: user._id }, JWT_SECRET, {expiresIn : JWT_EXPIRES_IN});
+        // const token = jwt.sign({ id: user._id, role: user.role, email: user.email, isAccountVerified: user.isAccountVerified, }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
 
-     //Clean put only userdata that are safe returning over here
-     const safeUser = {
+
+       //THIS IS THE NEW THING I ADDED BELOW
+
+
+        
+       
+        const tokens = generateTokens(user);// generate my tokens
+        user.accessToken = tokens.accessToken;  //put it in the user model accessToken field
+        user.refreshToken = tokens.refreshToken; //put it in the user model refreshToken field
+        await user.save(); //save the user with the new tokens
+
+
+        // // store access token in cookie (short-lived)
+        res.cookie('token', tokens.accessToken, {
+            httpOnly: true,
+            secure: true, //only send cookie over https
+            sameSite: 'none',    // more look into this later!!!!!!
+            maxAge: 1000 * 60 * 60, //1h
+        });
+
+
+        // // store refresh token in cookie (long-lived)
+        res.cookie('refreshToken', tokens.refreshToken, {
+            httpOnly: true,
+            secure: true, //only send cookie over https
+            sameSite: 'none',    // more look into this later!!!!!!
+            maxAge: 1000 * 60 * 60 * 24 * 7, //1 week
+        });
+
+
+
+
+
+
+
+
+
+        //Clean put only userdata that are safe returning over here
+        const safeUser = {
             _id: user._id,
             name: user.name,
             email: user.email,
             role: user.role,
             isAccountVerified: user.isAccountVerified,
             createdAt: user.createdAt,
-            };
-      
-    //  pushing the token in a cookie
+        };
+
+        //  pushing the token in a cookie
         //   res.cookie('token', token,{
         //     httpOnly:true ,
         //     secure: process.env.NODE_ENV === 'production', //only send cookie over https
@@ -151,48 +189,73 @@ export const signIn = async (req, res, next)=>{
         //     maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
         //   })
 
-          
-     res.cookie('token', token,{
-            httpOnly:true,
-            secure:true, //only send cookie over https
-            sameSite:'none',    // more look into this later!!!!!!
-            maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
-          })
+
+
+        //ORIGINAL OVER HERE/////////////////////////////
+        // res.cookie('token', token, {
+        //     httpOnly: true,
+        //     secure: true, //only send cookie over https
+        //     sameSite: 'none',    // more look into this later!!!!!!
+        //     maxAge: 1000 * 60 * 60 * 24 * 7, //1 week 
+        // })
 
 
 
 
-          // I will remove this later, currently just for testing purposes
-     res.status(200).json(
-        {
-            success: true, 
-            message: 'User signed in successfully', 
-            user:safeUser // expecting the user with that particular email
-            
+        // I will remove this later, currently just for testing purposes
+        res.status(200).json(
+            {
+                success: true,
+                message: 'User signed in successfully',
+                user: safeUser // expecting the user with that particular email
+
+            }
+        )
+
+
+    } catch (error) {
+        console.log(error)
+
+        // Handle custom errors with statusCode
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message
+            });
         }
-     )
 
+        // Handle any other unexpected errors
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
 
-   }catch(error){
-    console.log(error)
-    next(error)
-   }
+        // next(error) I will add this later when i create a middleware for handling
+        //SignUp/signIn/SignOut errors, right now we handle it locally
+
+    }
 }
 
 
 //USER LOGGING OUT OF THIER ACCOUNT
-export const signOut = async (req, res , next)=>{
+export const signOut = async (req, res, next) => {
 
-    try{
-        res.clearCookie('token',{
-            httpOnly : true,
+    try {
+        res.clearCookie('token', {
+            httpOnly: true,
             secure: true,
-            sameSite: 'none' 
+            sameSite: 'none'
         });
 
-         return res.json({success: true, message: "Sign out successful"});
+        res.clearCookie('refreshToken',{
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none'
+        })
+         
+        return res.json({ success: true, message: "Sign out successful" });
 
-    } catch(error){
+    } catch (error) {
         console.log(error)
         next(error)
     }
@@ -203,89 +266,104 @@ export const signOut = async (req, res , next)=>{
 
 // SEND VERIFICATION OTP TO THE USERS EMAIL   // will uncomment it when i add the need columns to the user model
 export const sendVerifyOtp = async (req, res, next) => {
-    
-      try{
+
+    try {
         //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
-        
-        const {id} = req.user;
+
+        const { id } = req.user;
         console.log("otpdebug", id)
         const user = await User.findById(id);
 
-        if(user.isAccountVerified){
-            return res.json({success: false, message: 'Account already verified'})
-       }
+        if (user.isAccountVerified) {
+            return res.json({ success: false, message: 'Account already verified' })
+        }
 
 
-       const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
-       user.verifyOtp = otp;
-       user.verifyOtpExpireAt = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes 
-       await user.save();
+        const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
+        user.verifyOtp = otp;
+        user.verifyOtpExpireAt = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes 
+        await user.save();
 
 
-    // Sends the OTP email  
-            await sendOTPEmail({ 
-                to: user.email, 
-                userName: user.name,
-                otpCode: otp,
-                expiryMinutes: 10,
+        // Sends the OTP email  
+        await sendOTPEmail({
+            to: user.email,
+            userName: user.name,
+            otpCode: otp,
+            expiryMinutes: 10,
         });
 
-        res.json({success: true, message: 'Verification OTP email sent successfully'})
+        res.json({ success: true, message: 'Verification OTP email sent successfully' })
 
- 
-      }catch(error){
-        res.json({success: false, message: 'Could not send verification OTP email', error: error.message})
+
+    } catch (error) {
+        res.json({ success: false, message: 'Could not send verification OTP email', error: error.message })
         next(error)
-      }
+    }
     // Implementation for sending verification email
 }
 
 
 
 // VERIFY EMAIL ACCOUNT VIA OTP BEING SENT WHEN USER INPUTS IT  // will uncomment it when i add the need columns to the user model
-export const verifyEmail = async (req, res, next) =>{
+export const verifyEmail = async (req, res, next) => {
 
-     //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
-    const {otp} = req.body;
-    const {id} = req.user;
+    //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
+    const { otp } = req.body;
+    const { id } = req.user;
 
-    if(!id || !otp){
-        return res.json({success: false, message: 'Missing details, please provide them'})
+    if (!id || !otp) {
+        return res.json({ success: false, message: 'Missing details, please provide them' })
     }
-    try{
+    try {
 
-       const user = await User.findById(id);
+        const user = await User.findById(id);
 
-      // If user with the provided id doesn't exist
-      if(!user){
-        const error = new Error('User not found');
-        error.statusCode = 404;
-        throw error;
-      }
+        // If user with the provided id doesn't exist
+        if (!user) {
+            const error = new Error('Account verification failed');
+            error.statusCode = 500; // Internal server error
+            throw error;
+        }
 
-      //Checks OTP entered and OTP in the users database are the same
-      if(user.verifyOtp ==='' || user.verifyOtp !== otp){
-        return res.json({success: false, message: 'Invalid OTP'})
-      }
+        //Checks OTP entered and OTP in the users database are the same
+        if (user.verifyOtp === '' || user.verifyOtp !== otp) {
+            return res.json({ success: false, message: 'Invalid OTP' })
+        }
 
-      //Checks if OTP has expired
-      if(user.verifyOtpExpireAt < Date.now()){
-        return res.json({success: false, message: 'OTP has expired, please request a new one'})
-      }
+        //Checks if OTP has expired
+        if (user.verifyOtpExpireAt < Date.now()) {
+            return res.json({ success: false, message: 'OTP has expired, please request a new one' })
+        }
 
-      // If everything is fine, verify the users account
+        // If everything is fine, verify the users account
         user.isAccountVerified = true;
         user.verifyOtp = '';
-        user.verifyOtpExpireAt = 0; 
+        user.verifyOtpExpireAt = 0;
 
         await user.save();
-        res.json({success: true, message: 'Email Account verified successfully'})
+        res.json({ success: true, message: 'Email Account verified successfully' })
 
 
-    }catch(error){
-        res.json({success: false, message: 'Could not Verify Account', error: error.message})
-        next(error)
+    } catch (error) {
+        console.log(error)
 
+        // Handle custom errors with statusCode
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        // Handle any other unexpected errors
+        return res.status(500).json({
+            success: false,
+            message: 'Could not verify account'
+        });
+
+
+        //next(error) didnt use it here to, until i create auth error handling middleware
     }
 
 }
@@ -293,100 +371,204 @@ export const verifyEmail = async (req, res, next) =>{
 
 
 //CHECK IF USER IS AUTHENTICATED
-export const isAuthenicated = async (req, res)=>{
-    try{
-        return res.json({success: true});
+export const isAuthenicated = async (req, res) => {
+    try {
+        const { isAccountVerified } = req.user
 
-    }catch(error){
-        res.json({ succes:false, message: error.message
+        if (!isAccountVerified) {
+            return res.json({
+                success: false,
+                message: "Account not verified"
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "User is authenticated and verified"
+        });
+
+
+    } catch (error) {
+        res.json({
+            succes: false, message: error.message
 
         })
     }
 }
+
+
 
 
 
 
 //SEND PASSWORD RESET OTP
-export const sendResetOtp = async(req, res)=>{
-    const {email} = req.user;
-    if(!email){
-        return res.json({success: false, message: "Email is required"})
+export const sendResetOtp = async (req, res) => {
+    // const { email } = req.user;
+    const { email } = req.body;
+
+    if (!email) {
+        return res.json({ success: false, message: "Email is required" })
     }
 
-    try{
-       const user = await User.findOne({email});
+    try {
+        const user = await User.findOne({ email });
 
-      if(!user){
-        return res.json({
-            success: false, message: "User not found"
-        })
-      }
+        if (!user) {
+            return res.json({
+                success: false, message: "User not found"
+            })
+        }
 
-      const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
-       user.resetOtp = otp;
-       user.resetOtpExpireAt = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes 
-       await user.save();
+        const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit OTP
+        user.resetOtp = otp;
+        user.resetOtpExpireAt = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes 
+        await user.save();
 
 
-    // Sends the OTP email  
-            await sendOTPEmail({ 
-                to: user.email, 
-                userName: user.name,
-                otpCode: otp,
-                expiryMinutes: 10,
+        // Sends the OTP email  
+        await sendOTPEmail({
+            to: user.email,
+            userName: user.name,
+            otpCode: otp,
+            expiryMinutes: 10,
         });
-     
-    res.json({success: true, message: "Reset OTP sent to email"})
 
-   }catch(error){
-        res.json({success: false, message: 'Could not send reset OTP email', error: error.message})
+        res.json({ success: true, message: "Reset OTP sent to email" })
+
+    } catch (error) {
+        res.json({ success: false, message: 'Could not send reset OTP email', error: error.message })
         next(error)
-      }
+    }
 }
 
 
 
+
+
+
+
+//VERIFY EMAIL FOR PASSWORD RESET OTP, REMEMBER THE USER IS NOT LOGGED IN RIGHT NOW SO WE CAN'T USE 
+// TOKEN_ID TO VERIFY ACCOUNT EXISTENCE, RATHER HE WOULD MANUALLY ADD HIS EMAIL TO THE REQUEST.BODY THEN WE CHECK
+// IF HIS ACCOUNT EXIST, AND SENT THE OTP TO EMAIL
+export const verifyresetOtp = async (req, res, next) => {
+
+    //since there is no option to send userId in the body from the frontend, I will just use the user from the authorize middleware
+    const { otp , email } = req.body;
+
+
+    if (!email || !otp) {
+        return res.json({ success: false, message: 'Missing details, please provide them' })
+    }
+    try {
+
+       const user = await User.findOne({ email });
+
+
+        // If user with the provided id doesn't exist
+        if (!user) {
+            const error = new Error('Account verification failed');
+            error.statusCode = 500; // Internal server error
+            throw error;
+        }
+
+        //Checks OTP entered and OTP in the users database are the same
+        if (user.resetOtp === '' || user.resetOtp !== otp) {
+            return res.json({ success: false, message: 'Invalid OTP' })
+        }
+
+        //Checks if OTP has expired
+        if (user.resetOtpExpireAt < Date.now()) {
+            return res.json({ success: false, message: 'OTP has expired, please request a new one' })
+        }
+
+        // If everything is fine, verify the users account
+        user.isAccountVerified = true;
+        
+
+        await user.save();
+        res.json({ success: true, message: 'ResetOTP Valid' })
+
+
+    } catch (error) {
+        console.log(error)
+
+        // Handle custom errors with statusCode
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        // Handle any other unexpected errors
+        return res.status(500).json({
+            success: false,
+            message: 'Could not verify reset OTP account'
+        });
+
+
+        //next(error) didnt use it here to, until i create auth error handling middleware
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //RESET USER PASSWORD
-export const resetPassword = async (req, res, next)=>{
-    const {email} = req.user;
-    const {otp, newPassword} = req.body;
+export const resetPassword = async (req, res, next) => {
+     
+    const {newPassword, email, otp} = req.body;
 
-    if(!email || !otp || !newPassword){
+    if (!email || !otp || !newPassword) {
         return res.json({
-            success: false, 
-            message:"Email, OTP and new Password are required"
+            success: false,
+            message: "Email, OTP and new Password are required"
         })
-    }; 
+    };
 
 
 
-    try{
-     const user = await User.findOne({email});
-     if(!user){
-        return res.json({
-            success:false, 
-            message: "User not Found"
-        })
-     }; 
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            const error = new Error('New Password Creation failed');
+            error.statusCode = 500; // Internal server error
+            throw error;
+        };
 
 
-     console.log("Reset Password should be working if this consoles", user.name + newPassword + otp)
+        console.log("Reset Password should be working if this consoles", user.name + newPassword + otp)
 
 
-      if(user.resetOtp === "" || user.resetOtp !== otp){
-        return res.json({
-            success: false, 
-            message:"Invalid OTP"
-        })
-      };
+        if (user.resetOtp === "" || user.resetOtp !== otp) {
+            return res.json({
+                success: false,
+                message: "Invalid OTP"
+            })
+        };
 
 
-     if(user.resetOtpExpireAt < Date.now()){
-        return res.json({
-            success: false, message: "reset OTP expired"
-        })
-     };
+        if (user.resetOtpExpireAt < Date.now()) {
+            return res.json({
+                success: false, message: "reset OTP expired"
+            })
+        };
+
+
+        
 
         //hash the new password and push to database
         const salt = await bcrypt.genSalt(10);
@@ -396,18 +578,73 @@ export const resetPassword = async (req, res, next)=>{
         user.resetOtpExpireAt = 0;
 
 
+
         await user.save();
 
         return res.json({
             success: true, message: 'Password has been reset successfully'
         });
 
-    }catch(error){
-       res.json({success: false, message: 'Could not send reset password', error: error.message})
-        next(error)   
+    } catch (error) {
+         // Handle custom errors with statusCode
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        // Handle any other unexpected errors
+        return res.status(500).json({
+            success: false,
+            message: 'Could not verify reset OTP account'
+        });
+
+        
     }
 }
 
 
 
 
+export const refresh = async (req, res, next) => {
+     const { refreshToken } = req.cookies;
+  if (!refreshToken) return res.status(401).json({ message: "No refresh token" });
+
+    try {
+    const tokenDecoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET )
+
+    const user = await User.findById(tokenDecoded.id);
+
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    const tokens = generateTokens(user);
+    user.accessToken = tokens.accessToken;
+    user.refreshToken = tokens.refreshToken;
+
+    await user.save();
+
+    // Reset cookies
+    res.cookie("token", tokens.accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 1000 * 60 * 15,
+    });
+
+    res.cookie("refreshToken", tokens.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+    });
+
+
+     res.json({ success: true, message: "Tokens refreshed" });
+}catch (error) {
+    console.log(error)
+    return res.status(401).json({message:"Invalid refresh token"})
+}
+}

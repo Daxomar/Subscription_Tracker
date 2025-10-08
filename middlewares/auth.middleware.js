@@ -34,11 +34,14 @@ export const authorizeRoles = (...allowedRoles) => {
 
 
 
-// THIRD ONE I CREATED V3  
+// THIRD ONE I CREATED V3  //works for access token
 export const protect = async (req, res, next) => {
       
+
+
     const {token} = req.cookies;
     if(!token) return res.status(401).json({message: 'Unauthorized, login again'});
+
 
      
     try{
@@ -49,7 +52,8 @@ export const protect = async (req, res, next) => {
       req.user = {
         id: tokenDecoded.id,
         email:tokenDecoded.email,
-        role:tokenDecoded.role 
+        role:tokenDecoded.role,
+        isAccountVerified: tokenDecoded.isAccountVerified
        };
     }else{
         return res.status(401).json({message: 'Unauthorized, login again'});
@@ -59,7 +63,7 @@ export const protect = async (req, res, next) => {
 
 }catch(error){
 
-    return res.status(403).json({message: 'Forbidden: invalid or expired token', error: error.message})
+    return res.status(401).json({message: 'Forbidden: invalid or expired token', error: error.message})
 
 }
 
