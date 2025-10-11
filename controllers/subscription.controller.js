@@ -312,7 +312,7 @@ export const getAllSubscriptions = async (req, res, next) =>{
         
         res.status(200).json({
             success: true, 
-            data: subscriptions, 
+            subscriptions: subscriptions, 
             message: `Here are all the subscriptions made in my app, Request made by ${role} with id:${id}`
         })
 
