@@ -37,8 +37,6 @@ export const authorizeRoles = (...allowedRoles) => {
 // THIRD ONE I CREATED V3  //works for access token
 export const protect = async (req, res, next) => {
       
-
-
     const {token} = req.cookies;
     if(!token) return res.status(401).json({message: 'Unauthorized, login again'});
 
