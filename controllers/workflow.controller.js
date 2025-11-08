@@ -8,7 +8,7 @@ import {sendReminderEmail} from '../utils/send-email.js'
 const REMINDERS = [7, 5, 2, 1]
 
 export const sendReminders = serve(async (context) => {
-  const { subscriptionId } = context.requestPayload;
+  const { subscriptionId }  = context.requestPayload;
   const subscription = await fetchSubscription(context, subscriptionId);
 
   console.log('Sending reminder lololololollo ahahahahahaah for subscription ID:', subscriptionId);

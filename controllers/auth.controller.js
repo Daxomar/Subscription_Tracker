@@ -375,12 +375,12 @@ export const isAuthenicated = async (req, res) => {
     try {
         const { isAccountVerified } = req.user
 
-        if (!isAccountVerified) {
+        if (!isAccountVerified) {   //will have to change this later to accountcerified or user exist
             return res.json({
                 success: false,
                 message: "Account not verified"
             });
-        }
+        }  
 
         return res.json({
             success: true,
@@ -645,6 +645,6 @@ export const refresh = async (req, res, next) => {
      res.json({ success: true, message: "Tokens refreshed" });
 }catch (error) {
     console.log(error)
-    return res.status(401).json({message:"Invalid refresh token"})
+    return res.status(403).json({message:"Invalid refresh token session ended login again"})
 }
 }

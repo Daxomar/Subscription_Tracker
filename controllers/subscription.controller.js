@@ -302,23 +302,108 @@ export const getAllSubscriptions = async (req, res, next) =>{
           
     try{
         const {id, email , role} = req.user;
-        const subscriptions = await Subscription.find(); 
+        console.log("Trying out pagination for subscriptions")
 
-        if(!subscriptions){
-            const error = new Error('Subscriptions Not Found')
-            error.statusCode = 404;
-            throw error
+        //Pagination  setup
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 1;
+        const skip = (page - 1) * limit;
+
+
+
+              // Search setup 
+        const search = req.query.search ? req.query.search.trim() : "";
+
+
+
+        // Build search query
+     const query = search
+  ? {
+      $or: [
+        { name: { $regex: search, $options: "i" } },
+       
+        { frequency: { $regex: search, $options: "i" } },
+       
+      
+        { status: { $regex: search, $options: "i" } },
+      ],
+    }
+  : {};
+
+
+  
+
+
+
+            //Fetch total subscription counts matching the query, if no query it just returns all the subscription
+            const totalSubscriptions = await Subscription.countDocuments(query);
+
+          // Fetch paginated users using search query if there is any
+        const subscriptions = await Subscription.find(query)
+                    .skip(skip)
+                    .limit(limit)
+                    .sort({ createdAt: -1 }); // optional: newest first
+
+        if(!subscriptions || subscriptions.length === 0) {
+            return res.status(200).json({
+                success: true,
+                subscriptions: [],
+                message: search
+                    ? "No subscriptions matched your search query"
+                    : "No subscriptions found in the database",
+                pagination: {
+                    currentPage: page,
+                    totalPages: 0,
+                    totalSubscriptions: 0,
+                    limit,
+                    hasNextPage: false,
+                    hasPrevPage: false,
+                    nextPage: null,
+                    prevPage: null,
+                },
+            });
         }
         
-        res.status(200).json({
-            success: true, 
-            subscriptions: subscriptions, 
-            message: `Here are all the subscriptions made in my app, Request made by ${role} with id:${id}`
+
+       //paginated Info
+        const hasMore = page * limit < totalSubscriptions;
+        const totalPages = Math.ceil(totalSubscriptions / limit);
+        const hasNextPage = page < totalPages;
+        const hasPrevPage = page > 1;
+        
+         res.status(200).json({
+            success: true,
+            subscriptions: subscriptions,
+            message: ` Here are all the subscriptions from all users of my app, Request made by ${role} with id:${id}`,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalSubscriptions,
+                limit,
+                hasNextPage,
+                hasPrevPage,
+                nextPage: hasNextPage ? page + 1 : null,
+                prevPage: hasPrevPage ? page - 1 : null,
+            }
         })
 
     }catch(error){
-        console.log(error)
-    }
+       // Handle custom errors with statusCode
+        if (error.statusCode) {
+            return res.status(error.statusCode).json({
+                success: false,
+                message: error.message
+            });
+        }
 
+        // Handle any other unexpected errors
+        return res.status(500).json({
+            success: false,
+            message: 'Internal Server Error',
+        });
+
+        //next() will be used later when i create my middlewares properly
+
+    }
  
 }

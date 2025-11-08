@@ -14,14 +14,14 @@ export const getUser = async (req, res, next) => {
             throw error
         }
 
-            const safeUser = {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                isAccountVerified: user.isAccountVerified,
-                createdAt: user.createdAt,
-            };
+        const safeUser = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            isAccountVerified: user.isAccountVerified,
+            createdAt: user.createdAt,
+        };
 
         res.status(200).json({ sucess: true, data: safeUser }) // Right now i am pushing all the user details, would have to make it more specific
 
@@ -44,23 +44,78 @@ export const getUser = async (req, res, next) => {
 
 
 
-
+//GET USERS BY ADMIN
 export const getUsers = async (req, res, next) => {
 
     try {
         const { id, email, role } = req.user;
         console.log("this is what i am currently debugging", id);
-        const users = await User.find();
+  
 
-        // const user = await User.findById(req.params.id).select('-password'); // brings eveything out aside from the password of a user
+        //Pagination setup
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 2;
+        const skip = (page - 1) * limit;
 
-        if (!users) {
-            const error = new Error('There are no users in the DB')
-            error.statusCode = 404;
-            throw error
+
+
+        // Search setup 
+        const search = req.query.search ? req.query.search.trim() : "";
+
+
+        // Build search query
+        const query = search
+            ? {
+                $or: [
+                    { name: { $regex: search, $options: "i" } },
+                    { email: { $regex: search, $options: "i" } },
+                    { role: { $regex: search, $options: "i" } },
+                ],
+            }
+            : {};
+
+
+
+        //Fetch total users count matching the query, if no query it just returns all users in the db
+        const totalUsers = await User.countDocuments(query);
+
+
+        // Fetch paginated users using search query if there is any
+        const users = await User.find(query)
+            .select('-password') // Exclude password
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 }); // optional: newest first
+
+
+
+
+
+        // Handle empty search results or no users gracefully doesnt even go to the next res 
+        if (!users || users.length === 0) {
+            return res.status(200).json({
+                success: true,
+                users: [],
+                message: search
+                    ? "No users matched your search query"
+                    : "No users found in the database",
+                pagination: {
+                    currentPage: page,
+                    totalPages: 0,
+                    totalUsers: 0,
+                    limit,
+                    hasNextPage: false,
+                    hasPrevPage: false,
+                    nextPage: null,
+                    prevPage: null,
+                },
+            });
         }
 
 
+
+
+        //Clean users model i can return to the frontend safely(Secured)
         const safeUsers = users.map(user => ({
             _id: user._id,
             name: user.name,
@@ -72,18 +127,34 @@ export const getUsers = async (req, res, next) => {
 
 
 
+
+
+        //paginated Info
+        const hasMore = page * limit < totalUsers;
+        const totalPages = Math.ceil(totalUsers / limit);
+        const hasNextPage = page < totalPages;
+        const hasPrevPage = page > 1;
+
+
+
+        //Actual data returned should all go well, either via searching or simple viewing the users in my database
         res.status(200).json({
-            success: true, users: safeUsers, message: ` Here are all the users of my app, Request made by ${role} with id:${id}
-      `}) // Right now i am pushing all the user details, would have to make it more specific
+            success: true,
+            users: safeUsers,
+            message: ` Here are all the users of my app, Request made by ${role} with id:${id}`,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalUsers,
+                limit,
+                hasNextPage,
+                hasPrevPage,
+                nextPage: hasNextPage ? page + 1 : null,
+                prevPage: hasPrevPage ? page - 1 : null,
+            }
+        }) // Right now i am pushing all the user details, would have to make it more specific
 
 
-        // res.status(200).json({
-        //   success: true,
-        //   userData:{
-        //     name:user.name,
-        //     isAccountVerified: user.isAccountVerified
-        //   }
-        // })
 
 
     } catch (error) {
@@ -99,7 +170,7 @@ export const getUsers = async (req, res, next) => {
         // Handle any other unexpected errors
         return res.status(500).json({
             success: false,
-            message: 'Could not verify reset OTP account'
+            message: 'Internal Server Error',
         });
 
         //next() will be used later when i create my middlewares properly
